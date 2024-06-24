@@ -1,0 +1,26 @@
+{
+  "name": "sdi68/ecllog",
+  "description": "Библиотека для логирования работы компонентов различных CMS",
+  "type": "library",
+  "license": "MIT",
+  "version": "1.0.0",
+  "keywords": ["logging"],
+  "authors": [
+    {
+      "name": "ECL",
+      "email": "info@econsultlab.ru"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require": {
+    "php": ">=7.4.0"
+  },
+  "require-dev": {
+
+  },
+  "autoload": {
+    "psr-0": {
+      "ECLLOG": "src/"
+    }
+  }
+}
