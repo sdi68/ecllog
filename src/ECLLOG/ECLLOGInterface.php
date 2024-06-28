@@ -3,10 +3,17 @@
 namespace ECLLOG;
 
 /**
- * @version 1.0.0
+ * @version 1.0.1
  */
 interface ECLLOGInterface
 {
+    /**
+     * Массив корректных значений типа записи
+     * @var array
+     * "@since 1.0.1
+     */
+    const _validMsgTypes = array();
+
     /**
      * Формирует путь к файлу лога
      * @return string
