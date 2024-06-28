@@ -6,10 +6,11 @@ namespace ECLLOG;
 /**
  * Класс создания лога приложения
  *
- * @version 1.0.0
+ * @version 1.0.1
  */
 class ECLLOG
 {
+
     /**
      * @param string $type Тип записи. Одно из значений:
      * Message - информационное сообщение
@@ -20,7 +21,7 @@ class ECLLOG
      * @return void
      * @since      1.0.1
      */
-    static final function storeLog(string $type, string $description, $data = null): void
+    static public final function writeLog(string $type, string $description, $data = null): void
     {
 
         if(call_user_func( array( get_called_class(), 'checkEnabled' ))) {
@@ -44,7 +45,7 @@ class ECLLOG
      * @return mixed|string
      * @since      1.0.1
      */
-    private static final function _getCaller():string
+    private static function _getCaller():string
     {
         $trace = debug_backtrace();
         $caller = $trace[2];
