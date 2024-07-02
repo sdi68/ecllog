@@ -39,42 +39,95 @@
 
 ## Пример использования
 
-1. Создаем класс, потомок ECLLOG и интерфейса ECLLOGInterface и переопределяем методы в соответствии со своими потребностями:
+1. Создаем класс, потомок ECLLOG и логгера ECLLogger и переопределяем методы в соответствии со своими потребностями:
 
 ```php
-use ECLLOG\ECLLOG;
-use ECLLOG\ECLLOGInterface;
+class ECLLogging extends ECLLOG{
 
-class WPLog extends ECLLOG implements ECLLOGInterface {
-    static function getLogPath():string{
-        return  plugin_dir_path(dirname(__FILE__)) . '/logs/WPLog.log';
-    };
-    static function checkEnabled():bool {
-        $enabled= ...
-        return $enabled;
-    }
-    
-    static function prepareData($data):string{
-        if (empty($data))
-            return '';
-        return str_replace(array(' ', "\r\n", "\n", "\r"), '', print_r($data, true));
-    }
-    
-    static function addTimestamp():string{
-        return date_i18n('Y-m-d H:i:s');
-    }
-    
-    static function validateLogType(string $type):string{
-          $types = array('Message', 'Warning', 'Error');
-
-        if (in_array($type, $types) === false) {
-            $type = 'Message';
+    public static function add(bool $enabled,string $source, string $type, string $message, $data = null): void
+    {
+        self::$logger_class = "ECLabs\\Library\\Loggers\\ECLabLogger";
+        if($enabled) {
+            if (!isset(self::$loggers[$source])) {
+                self::$loggers[$source] = new self::$logger_class($source);
+            }
+            self::_add($source, $type, $message, $data);
         }
-        return $type;
+    }
+
+}
+
+class ECLabLogger extends ECLLogger
+{
+    public function __construct(string $source)
+    {
+        $this->back_trace_level = 4;
+
+        $this->format = "[{time_stamp}] - {entry_type} - {caller} - {description} - {data}";
+        $this->format_variables = array(
+            "{time_stamp}",
+            "{entry_type}",
+            "{caller}",
+            "{description}",
+            "{data}");
+        parent::__construct($source);
+    }
+    
+        protected function setPathFromSource(string $source): void
+    {
+		$config = new JConfig();
+		$path = $config->log_path. '/' . $source . '.php';
+        $this->_setPath($path);
+    }
+
+    protected function addTimestamp(): string
+    {
+        return Factory::getDate()->format('Y-m-d H:i:s');
+    }
+
+    protected function generateFileHeader(): string
+    {
+        $head = array();
+        $head[] = '#';
+        $head[] = '#<?php die(\'Forbidden.\'); ?>';
+        $head[] = '#Date: ' . gmdate('Y-m-d H:i:s') . ' UTC';
+        $version = new Version();
+        $head[] = '#Software: ' . $version->getLongVersion();
+        $head[] = '';
+
+        // Prepare the fields string
+        $head[] = '#Fields: ' . implode(" - ",$this->format_variables);
+        $head[] = '';
+
+        return implode("\n", $head);
+    }
+
+    protected function prepareData(mixed $data): string
+    {
+        if (empty($data))
+			return '';
+		return str_replace(array(' ', "\r\n", "\n", "\r"), '', print_r($data, true));
+    }
+
+    protected function generateEntryLine(string $type, string $message, $data = null): string
+    {
+        return str_replace(
+            $this->format_variables,
+            array(
+                $this->addTimestamp(),
+                $this->addEntryType($type),
+                $this->getCaller(),
+                $message,
+                $this->prepareData($data)
+            ),
+            $this->format)."\n";
     }
 }
+
 ```
+
+
 2. В коде добавляем в нужном месте
 ```php
-LOG::storeLog('Message', 'data', $data);
+ECLLogging::add(true, $name,ECLLOG::INFO,"test",$data);;
 ```

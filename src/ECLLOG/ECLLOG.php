@@ -1,58 +1,102 @@
 <?php
+/**
+ *
+ * @package         ECLLOG
+ * @version           1.0.2
+ * @author            ECL <info@econsultlab.ru>
+ * @link                 https://econsultlab.ru
+ * @copyright       Copyright © 2024 ECL All Rights Reserved
+ * @license           http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+ */
 
 namespace ECLLOG;
 
-
 /**
- * Класс создания лога приложения
- *
- * @version 1.0.1
+ * Базовый класс логирования
+ * @since  1.0.0
  */
-class ECLLOG
+abstract class ECLLOG
 {
+
+    /**
+     * Ошибка.
+     *
+     * @var    string
+     * @since  1.0.2
+     */
+    const ERROR = "error";
+
+    /**
+     * Предупреждение.
+     *
+     * @var    string
+     * @since  1.0.2
+     */
+    const WARNING = "warning";
+
+    /**
+     * Информация.
+     *
+     * @var    string
+     * @since  1.0.2
+     */
+    const INFO = "info";
+
+    /**
+     * The global ECLLOG instance.
+     *
+     * @var    ECLLOG
+     * @since  1.0.1
+     */
+    protected static $instance;
+
+    /**
+     * Массив логгеров, отвечающих за различные приложения,
+     * использующие логирование
+     *
+     * @var    ECLLogger[]
+     * @since  1.0.2
+     */
+    protected static $loggers = [];
+
+    /**
+     * Конструктор
+     * @since  1.0.2
+     */
+    public function __construct()
+    {
+
+    }
+
+    /**
+     * Returns a reference to the a ECLLOG object, only creating it if it doesn't already exist.
+     *
+     * @param ECLLOG $instance The ECLLOG object instance to be used by the static methods.
+     *
+     * @return  void
+     *
+     * @since   1.0.2
+     */
+    public static function setInstance($instance): void
+    {
+        if (($instance instanceof ECLLOG) || $instance === null) {
+            static::$instance = &$instance;
+        }
+    }
 
     /**
      * @param string $type Тип записи. Одно из значений:
      * Message - информационное сообщение
      * Warning - предупреждение
      * Error - ошибка
-     * @param string $description Текстовое описание
+     * @param string $source Название инициатора лога
+     * @param string $message Текстовое описание
      * @param mixed|null $data Данные (переменная) для записи в лог
      * @return void
-     * @since      1.0.1
+     * @since      1.0.2
      */
-    static public final function writeLog(string $type, string $description, $data = null): void
+    protected static function _add(string $source, string $type, string $message, $data = null)
     {
-
-        if(call_user_func( array( get_called_class(), 'checkEnabled' ))) {
-
-            $type = call_user_func( array( get_called_class(), 'validateLogType',$type));
-
-            // Add timestamp to the entry
-            $entry = '[' . call_user_func( array( get_called_class(), 'addTimestamp')) . '] - ' . $type . ' - ' . self::_getCaller() . ' - ' . $description . (is_null($data) ? '' : ' - ' . call_user_func( array( get_called_class(), 'getLogPath',$data ))) . "\n";
-
-            // Compute the log file's path.
-            static $path;
-            if (!$path) {
-                $path = call_user_func( array( get_called_class(), 'getLogPath' ));
-            }
-            file_put_contents($path, $entry, FILE_APPEND);
-        }
-    }
-
-    /**
-     * Получает объект и функцию, откуда вызван лог
-     * @return mixed|string
-     * @since      1.0.1
-     */
-    private static function _getCaller():string
-    {
-        $trace = debug_backtrace();
-        $caller = $trace[2];
-        if (isset($caller['class'])) {
-            return $caller['class'] . ':' . $caller['function'];
-        } else {
-            return $caller['function'];
-        }
+        static::$loggers[$source]->addEntry($type, $message, $data);
     }
 }

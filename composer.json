@@ -3,7 +3,7 @@
   "description": "Библиотека для логирования работы компонентов различных CMS",
   "type": "library",
   "license": "MIT",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "keywords": ["logging"],
   "authors": [
     {
