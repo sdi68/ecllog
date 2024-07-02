@@ -78,10 +78,10 @@ abstract class ECLLogger
     /**
      * Формирует путь к файлу лога приложения
      * @param string $source Наименование приложения источника логов
-     * @return string
+     * @return void
      * @since 1.0.2
      */
-    abstract protected function setPathFromSource(string $source): string;
+    abstract protected function setPathFromSource(string $source): void;
 
     /**
      * Формирует метку времени записи лога
