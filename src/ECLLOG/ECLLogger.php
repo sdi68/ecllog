@@ -309,4 +309,13 @@ abstract class ECLLogger
      * @since 1.0.2
      */
     abstract protected function generateFileHeader(): string;
+
+    /**
+     * Формирует значение отметки времени для записи в лог
+     * @param string $timestamp Отметка времени. Если пустая, то формируется логгером.
+     *
+     * @return string
+     * @since 1.0.2
+     */
+    abstract protected function getTimeStamp(string $timestamp): string;
 }
