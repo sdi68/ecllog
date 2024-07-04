@@ -42,85 +42,77 @@
 1. Создаем класс, потомок ECLLOG и логгера ECLLogger и переопределяем методы в соответствии со своими потребностями:
 
 ```php
-class ECLLogging extends ECLLOG{
-
-    public static function add(bool $enabled,string $source, string $type, string $message, $data = null): void
+class ECLLogging extends ECLLOG
+{
+    public static function add(array $options, array $data = null): void
     {
-        self::$logger_class = "ECLabs\\Library\\Loggers\\ECLabLogger";
-        if($enabled) {
-            if (!isset(self::$loggers[$source])) {
-                self::$loggers[$source] = new self::$logger_class($source);
+        if (self::_checkLogEnabled($options))
+        {
+            if (!isset(self::$loggers[$options['source']]))
+            {
+                self::$loggers[$options['source']] = new $options['logger']($options);
             }
-            self::_add($source, $type, $message, $data);
+            self::_add($options, $data);
         }
     }
-
 }
 
-class ECLabLogger extends ECLLogger
+class ECLabDefaultLogger extends ECLLogger
 {
-    public function __construct(string $source)
+    /**
+     * @inheritDoc
+     * @since       1.0.20
+     */
+    public function __construct(array $options)
     {
-        $this->back_trace_level = 4;
-
-        $this->format = "[{time_stamp}] - {entry_type} - {caller} - {description} - {data}";
-        $this->format_variables = array(
-            "{time_stamp}",
-            "{entry_type}",
-            "{caller}",
-            "{description}",
-            "{data}");
-        parent::__construct($source);
-    }
-    
-        protected function setPathFromSource(string $source): void
-    {
-		$config = new JConfig();
-		$path = $config->log_path. '/' . $source . '.php';
-        $this->_setPath($path);
+        parent::__construct($options);
+        $this->entry_format = "[{timestamp}] - {type} - {caller} - {message} - {data}";
+        $this->advanced_fields=array();
     }
 
-    protected function addTimestamp(): string
+    /**
+     * @inheritDoc
+     * @since       1.0.20
+     */
+    protected function setPathFromSource(string $source): string
     {
-        return Factory::getDate()->format('Y-m-d H:i:s');
+        $config = new JConfig();
+        return $config->log_path . '/' . $source . '.php';
     }
 
+
+    /**
+     * @inheritDoc
+     * @since       1.0.20
+     */
     protected function generateFileHeader(): string
     {
-        $head = array();
-        $head[] = '#';
-        $head[] = '#<?php die(\'Forbidden.\'); ?>';
-        $head[] = '#Date: ' . gmdate('Y-m-d H:i:s') . ' UTC';
+        $head    = array();
+        $head[]  = '#';
+        $head[]  = '#<?php die(\'Forbidden.\'); ?>';
+        $head[]  = '#Date: ' . gmdate('Y-m-d H:i:s') . ' UTC';
         $version = new Version();
-        $head[] = '#Software: ' . $version->getLongVersion();
-        $head[] = '';
+        $head[]  = '#Software: ' . $version->getLongVersion();
+        $head[]  = '';
 
         // Prepare the fields string
-        $head[] = '#Fields: ' . implode(" - ",$this->format_variables);
+        $fields = array_merge($this->getDefaultFields(), $this->advanced_fields);
+        $fields_names = array();
+        foreach ($fields as $key => $val){
+            $fields_names[] =  $key;
+        }
+        $head[] = '#Fields: ' . implode(" - ", $fields_names);
         $head[] = '';
 
         return implode("\n", $head);
     }
 
-    protected function prepareData(mixed $data): string
+    protected function getTimeStamp($timestamp): string
     {
-        if (empty($data))
-			return '';
-		return str_replace(array(' ', "\r\n", "\n", "\r"), '', print_r($data, true));
-    }
+        if(!empty($timestamp))
+            return $timestamp;
 
-    protected function generateEntryLine(string $type, string $message, $data = null): string
-    {
-        return str_replace(
-            $this->format_variables,
-            array(
-                $this->addTimestamp(),
-                $this->addEntryType($type),
-                $this->getCaller(),
-                $message,
-                $this->prepareData($data)
-            ),
-            $this->format)."\n";
+        return Factory::getDate()->format('Y-m-d H:i:s');
     }
 }
 
@@ -129,5 +121,19 @@ class ECLabLogger extends ECLLogger
 
 2. В коде добавляем в нужном месте
 ```php
-ECLLogging::add(true, $name,ECLLOG::INFO,"test",$data);;
+        ECLLogging::add(
+            array(
+                "source"=>$name,
+                "enabled" =>$enabled,
+                "logger" => "ECLabs\\Library\\ECLLogging\\Loggers\\ECLabDefaultLogger",
+                "back_trace_level" => 4
+            ),
+            array(
+                "timestamp" => "",
+                "type" =>ECLLOG::INFO,
+                "caller" => "",
+                "message" =>"test",
+                "data" => $data,
+            )
+        );
 ```

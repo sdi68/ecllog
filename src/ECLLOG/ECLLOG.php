@@ -2,11 +2,11 @@
 /**
  *
  * @package         ECLLOG
- * @version           1.0.2
- * @author            ECL <info@econsultlab.ru>
- * @link                 https://econsultlab.ru
+ * @version         1.0.2
+ * @author          ECL <info@econsultlab.ru>
+ * @link            https://econsultlab.ru
  * @copyright       Copyright © 2024 ECL All Rights Reserved
- * @license           http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+ * @license         http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
  */
 
 namespace ECLLOG;
@@ -84,19 +84,42 @@ abstract class ECLLOG
         }
     }
 
+
     /**
-     * @param string $type Тип записи. Одно из значений:
-     * Message - информационное сообщение
-     * Warning - предупреждение
-     * Error - ошибка
-     * @param string $source Название инициатора лога
-     * @param string $message Текстовое описание
-     * @param mixed|null $data Данные (переменная) для записи в лог
+     * Добавляет запись в лог
+     * @param array $options Настройки логирования
+     * $options['enabled'] - bool - разрешена или нет запись в лог
+     * $options['source'] - string - наименование компонента источника лога
+     * $options['logger'] - string - класс логгера (с пространством имен)
+     * $options['back_trace_level'] - int - число уровней в debug_backtrace от функции, создающей запись в логе до текущей функции
+     * @param array $data Данные для записи в лог
+     * --- Обязательные поля ---
+     * $data['timestamp'] - string метка времени или пустое значение, чтоб сгенерировать в логгере
+     * $data['type'] - string тип записи из перечня ECLLOG::INFO, ECLLOG::ERROR, ECLLOG::WARNING
+     * $data['caller'] - string вызывающая запись процедура или если пустое, то определяется через debug_backtrace
+     * $data['message'] - string сообщение для вывода в лог
+     * $data['data'] - mixed значение переменной для вывода в лог
+     * --- Дополнительные поля ---
+     * Определяются для конкретного типа логгера
      * @return void
-     * @since      1.0.2
+     * @since   1.0.2
      */
-    protected static function _add(string $source, string $type, string $message, $data = null)
+    protected static function _add(array $options, array $data): void
     {
-        static::$loggers[$source]->addEntry($type, $message, $data);
+        static::$loggers[$options["source"]]->addEntry($data);
+    }
+
+    /**
+     * Проверка возможности вывода записи в лог
+     * @param array $options Настройки логирования
+     * @return bool
+     * @since   1.0.2
+     */
+    protected static function _checkLogEnabled(array $options): bool
+    {
+        $ret = $options["enabled"] ?? false;
+        $ret &= !empty($options["source"]);
+        $ret &= isset($options["logger"]) && class_exists($options["logger"]);
+        return $ret;
     }
 }

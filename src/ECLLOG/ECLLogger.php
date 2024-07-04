@@ -2,11 +2,11 @@
 /**
  *
  * @package         ECLLOG
- * @version           1.0.2
- * @author            ECL <info@econsultlab.ru>
- * @link                 https://econsultlab.ru
+ * @version         1.0.2
+ * @author          ECL <info@econsultlab.ru>
+ * @link            https://econsultlab.ru
  * @copyright       Copyright © 2024 ECL All Rights Reserved
- * @license           http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
+ * @license         http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
  */
 
 namespace ECLLOG;
@@ -17,6 +17,7 @@ namespace ECLLOG;
  */
 abstract class ECLLogger
 {
+
     /**
      * Путь к файлу лога
      * @var string
@@ -25,123 +26,202 @@ abstract class ECLLogger
     protected $path = "";
 
     /**
-     * Уровень в bactrace до функции, создающей запись в логе
+     * Уровень в debug_backtrace до функции, создающей запись в логе
      * @var int
      * @since 1.0.2
      */
     protected $back_trace_level = 4;
 
     /**
-     * Формат записи строки в лог
-     * @var string
+     * Настройки логирования
+     * @var array
      * @since 1.0.2
      */
-    protected $format = "[{time_stamp}] - {entry_type} - {caller} - {description} - {data}";
+    protected $options = array();
 
     /**
-     * Переменные шаблона
+     * Обязательные общие поля записи лога
+     * ключ - поле шаблона
+     * значение - функция получения значения поля
      * @var string[]
      * @since 1.0.2
      */
-    protected $format_variables = array(
-        "{time_stamp}",
-        "{entry_type}",
-        "{caller}",
-        "{description}",
-        "{data}"
+    private $default_fields = array(
+        "timestamp" => "getTimeStamp",
+        "type" => "getType",
+        "caller" => "getCaller",
+        "message" => "getMessage",
+        "data" => "getData"
     );
 
+    /**
+     * Дополнительные поля записи лога (задаются в конкретном логгере)
+     * ключ - поле шаблона
+     * значение - функция получения значения поля
+     * @var string[]
+     * @since 1.0.2
+     */
+    protected $advanced_fields = array();
+
+    /**
+     * Значения полей записи
+     * ключ - поле шаблона
+     * значение - значение поля
+     * @var array
+     * @since 1.0.2
+     */
+    protected $filds_values = array();
+
+    /**
+     * Шаблон записи лога.
+     * Поля заключаются в {}
+     * Может переопределяться в конкретном логгере
+     * @var string
+     * @since 1.0.2
+     */
+    protected $entry_format = "[{timestamp}] - {type} - {caller} - {message} - {data}";
 
     /**
      * Конструктор
-     * @param string $source Наименование приложения источника лога
+     * @param array $options Параметры логгера
      * @since 1.0.2
      */
-    public function __construct(string $source)
+    public function __construct(array $options)
     {
+        $this->options = $options;
+
         if (empty($this->path)) {
-            $this->setPathFromSource($source);
+            $this->path = $this->setPathFromSource($options['source']);
         }
+        // Получаем уровень до функции источника данных в логе
+        $this->back_trace_level = $options["back_trace_level"] + 5;
     }
 
-
     /**
-     * Устанавливает значение пути к файлу лога
-     * @param string|null $path
+     * Получает массив обязательных полей
+     * @return string[]
      * @since 1.0.2
      */
-    protected function _setPath(?string $path): void
+    public function getDefaultFields(): array
     {
-        $this->path = $path;
+        return $this->default_fields;
     }
 
     /**
-     * Формирует путь к файлу лога приложения
-     * @param string $source Наименование приложения источника логов
+     * @param array $data
      * @return void
      * @since 1.0.2
      */
-    abstract protected function setPathFromSource(string $source): void;
-
-    /**
-     * Формирует метку времени записи лога
-     * @return string
-     * @since 1.0.2
-     */
-    abstract protected function addTimestamp(): string;
-
-    /**
-     * Преобразует значение переменной для записи в строку лога
-     * @param mixed $data
-     * @return string
-     * @since 1.0.2
-     */
-    abstract protected function prepareData($data): string;
-
-    /**
-     * Формирует заголовок файла лога при его создании
-     * @return string
-     * @since 1.0.2
-     */
-    abstract protected function generateFileHeader(): string;
-
-    /**
-     * Собирает строку данных для записи в лог
-     * @param string $type Тип записи (ECLLOG::ERROR ECLLOG::INFO и т.п.)
-     * @param string $message Сообщение для записи в лог
-     * @param mixed $data Переменная для записи в лог
-     * @return string
-     * @since 1.0.2
-     */
-    abstract protected function generateEntryLine(string $type, string $message, $data = null): string;
-
-    /**
-     * Добавить запись в лог
-     * @param string $type Тип записи (ECLLOG::ERROR ECLLOG::INFO и т.п.)
-     * @param string $message Сообщение для записи в лог
-     * @param mixed $data Переменная для записи в лог
-     * @return void
-     * @since 1.0.2
-     */
-    public function addEntry(string $type, string $message, $data = null)
+    public final function addEntry(array $data): void
     {
+        if ($this->checkDataFields($data)) {
+            $line = "";
+            $is_new = !file_exists($this->path);
+            if ($is_new) {
+                // Файла нет - инициализируем создание
+                $line = $this->initFile();
+            }
 
-        $line = "";;
-        if (!file_exists($this->path)) {
-            // Файла нет - инициализируем создание
-            $line = $this->initFile();
-        }
-
-        $line .= $this->generateEntryLine($type, $message, $data);
-
-        if (!file_put_contents($this->path, $line, FILE_APPEND)) {
-            throw new \RuntimeException('Cannot write to log file.');
+            $line .= $this->generateEntryLine($data);
+            $result = file_put_contents($this->path, $line, $is_new ? 0 : FILE_APPEND);
+            if ($result === false) {
+                throw new \RuntimeException('Cannot write to log file.');
+            }
         }
 
     }
+
+    /**
+     * Проверка наличия данных для вывода в лог
+     * @param array $data Данные для вывода в лог
+     * @return bool
+     * @since 1.0.2
+     */
+    protected final function checkDataFields(array $data): bool
+    {
+        $ret = true;
+        foreach ($this->default_fields as $field => $func) {
+            if (!isset($data[$field])) {
+                throw new \RuntimeException(sprintf('Not present %s required field.', $field));
+            }
+        }
+        $ret &= $this->checkAdvancedDataFields($data);
+        return $ret;
+    }
+
+    /**
+     * Проверка наличия данных дополнительных полей для вывода в лог
+     * Может переопределяться в логгере
+     * @param array $data Данные для вывода в лог
+     * @return bool
+     * @since 1.0.2
+     */
+    protected function checkAdvancedDataFields(array $data): bool
+    {
+        if (count($this->advanced_fields)) {
+            foreach ($this->advanced_fields as $field => $func) {
+                if (!isset($data[$field])) {
+                    throw new \RuntimeException(sprintf('Not present %s advanced field.', $field));
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Формирует массив значений полей для подстановки в запись
+     * @param array $data Данные для записи в лог
+     * @return void
+     * @since 1.0.2
+     */
+    private function getFieldsValues(array $data): void
+    {
+        foreach ($data as $field => $val) {
+            if (isset($this->default_fields[$field])) {
+                // Проверяем основные поля
+                if (!method_exists($this, $this->default_fields[$field])) {
+                    throw new \RuntimeException(sprintf('Not present default field method %s.', $this->default_fields[$field]));
+                }
+                $this->filds_values[$field] = call_user_func(array($this, $this->default_fields[$field]), $val);
+            } else if (isset($this->advanced_fields[$field])) {
+                // Проверяем дополнительные поля
+                if (!method_exists($this, $this->advanced_fields[$field])) {
+                    throw new \RuntimeException(sprintf('Not present advanced field method %s.', $this->advanced_fields[$field]));
+                }
+                $this->filds_values[$field] = call_user_func(array($this, $this->advanced_fields[$field]), $val);
+            } else {
+                // неизвестное поле
+                throw new \RuntimeException(sprintf('Unknown field %s.', $field));
+            }
+        }
+    }
+
+    /**
+     * Формирует строку записи данных в лог
+     * Заменяет поля шаблона на значения
+     * @param array $data Данные для записи в лог
+     * @return string
+     */
+    protected final function generateEntryLine(array $data): string
+    {
+        try {
+            $this->getFieldsValues($data);
+        } catch (\RuntimeException $e) {
+            return $e->getMessage() . "\n";
+        }
+        $fields = array();
+        $vals = array();
+        foreach ($this->filds_values as $field => $val) {
+            $fields[] = "{" . $field . "}";
+            $vals[] = $val;
+        }
+        return str_replace($fields, $vals, $this->entry_format) . "\n";
+    }
+
 
     /**
      * Инициализация файла лога. Возвращает текст заголовка файла.
+     * Может быть переопределена в логгере.
      * @return string
      * @since 1.0.2
      */
@@ -151,24 +231,32 @@ abstract class ECLLogger
     }
 
     /**
-     * Добавляет в строку лога валидный тип записи
-     * @param string $type Тип записи
+     * Формирует значение типа записи в лог
+     * @param string $type Исходный тип записи
+     * Может быть переопределена в логгере.
+     *
      * @return string
      * @since 1.0.2
      */
-    protected function addEntryType(string $type): string
+    protected function getType(string $type): string
     {
         $check = array(ECLLOG::INFO, ECLLOG::ERROR, ECLLOG::WARNING);
         return (in_array($type, $check) ? $type : ECLLOG::INFO);
     }
 
     /**
-     * Получает объект и функцию, откуда вызван лог
+     * Формирует название вызывающей процедуры записи в лог
+     * @param string $caller Вызывающая процедура
+     * Может быть переопределена в логгере.
+     *
      * @return string
-     * @since      1.0.1
+     * @since 1.0.2
      */
-    protected function getCaller(): string
+    protected function getCaller(string $caller): string
     {
+        if (!empty($caller))
+            return $caller;
+
         $trace = debug_backtrace();
         $caller = $trace[$this->back_trace_level];
         if (isset($caller['class'])) {
@@ -178,4 +266,47 @@ abstract class ECLLogger
         }
     }
 
+    /**
+     * Формирует значение сообщения в лог
+     * @param string $message Сообщение
+     * Может быть переопределена в логгере.
+     *
+     * @return string
+     * @since 1.0.2
+     */
+    protected function getMessage(string $message): string
+    {
+        return $message;
+    }
+
+    /**
+     * Формирует значение переменной для записи в лог
+     * @param mixed $data Переменная
+     * Может быть переопределена в логгере.
+     *
+     * @return string
+     * @since 1.0.2
+     */
+    protected function getData(mixed $data): string
+    {
+        if (empty($data))
+            return '';
+
+        return str_replace(array(' ', "\r\n", "\n", "\r"), '', print_r($data, true));
+    }
+
+    /**
+     * Формирует путь к файлу лога приложения
+     * @param string $source Наименование приложения источника логов
+     * @return string
+     * @since 1.0.2
+     */
+    abstract protected function setPathFromSource(string $source): string;
+
+    /**
+     * Формирует заголовок файла лога при его создании
+     * @return string
+     * @since 1.0.2
+     */
+    abstract protected function generateFileHeader(): string;
 }
