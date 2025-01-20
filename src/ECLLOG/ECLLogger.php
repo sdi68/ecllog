@@ -142,7 +142,7 @@ abstract class ECLLogger
         $ret = true;
         foreach ($this->default_fields as $field => $func) {
             if (!isset($data[$field])) {
-                throw new \RuntimeException(sprintf('Not present %s required field.', $field));
+                throw new \RuntimeException(sprintf('Not present [%s] required field.', $field));
             }
         }
         $ret &= $this->checkAdvancedDataFields($data);
@@ -161,7 +161,7 @@ abstract class ECLLogger
         if (count($this->advanced_fields)) {
             foreach ($this->advanced_fields as $field => $func) {
                 if (!isset($data[$field])) {
-                    throw new \RuntimeException(sprintf('Not present %s advanced field.', $field));
+                    throw new \RuntimeException(sprintf('Not present [%s] advanced field.', $field));
                 }
             }
         }
@@ -180,18 +180,18 @@ abstract class ECLLogger
             if (isset($this->default_fields[$field])) {
                 // Проверяем основные поля
                 if (!method_exists($this, $this->default_fields[$field])) {
-                    throw new \RuntimeException(sprintf('Not present default field method %s.', $this->default_fields[$field]));
+                    throw new \RuntimeException(sprintf('Not present default field method [%s].', $this->default_fields[$field]));
                 }
                 $this->filds_values[$field] = call_user_func(array($this, $this->default_fields[$field]), $val);
             } else if (isset($this->advanced_fields[$field])) {
                 // Проверяем дополнительные поля
                 if (!method_exists($this, $this->advanced_fields[$field])) {
-                    throw new \RuntimeException(sprintf('Not present advanced field method %s.', $this->advanced_fields[$field]));
+                    throw new \RuntimeException(sprintf('Not present advanced field method [%s].', $this->advanced_fields[$field]));
                 }
                 $this->filds_values[$field] = call_user_func(array($this, $this->advanced_fields[$field]), $val);
             } else {
                 // неизвестное поле
-                throw new \RuntimeException(sprintf('Unknown field %s.', $field));
+                throw new \RuntimeException(sprintf('Unknown field [%s].', $field));
             }
         }
     }
@@ -292,7 +292,8 @@ abstract class ECLLogger
         if (empty($data))
             return '';
 
-        return str_replace(array(' ', "\r\n", "\n", "\r"), '', print_r($data, true));
+        //return str_replace(array(' ', "\r\n", "\n", "\r"), '', print_r($data, true));
+        return preg_replace("/\s+/u", " ", print_r($data, true));
     }
 
     /**

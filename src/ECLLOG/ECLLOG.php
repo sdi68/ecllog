@@ -106,6 +106,7 @@ abstract class ECLLOG
      */
     protected static function _add(array $options, array $data): void
     {
+        $data['data'] = $data['data'] ?? gettype($data['data']);
         static::$loggers[$options["source"]]->addEntry($data);
     }
 
